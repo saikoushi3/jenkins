@@ -2,11 +2,15 @@
 - hosts: all
   become: yes
   tasks:
-    - name: Install Java (OpenJDK 11)
+    - name: Install Java
       apt:
-        name: openjdk-11-jdk
-        state: present
+        name: openjdk-17-jdk
         update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
 
     - name: Add Jenkins GPG key
       apt_key:
@@ -23,8 +27,28 @@
         name: jenkins
         state: present
 
-    - name: Start and enable Jenkins service
+    - name: Start Jenkins
       service:
         name: jenkins
         state: started
-        enabled: yes
+        enabled: true
+
+    - name: Add Jenkins user to Docker group
+      user:
+        name: jenkins
+        groups: docker
+        append: yes
+
+    - name: Restart Jenkins to apply Docker group permissions
+      service:
+        name: jenkins
+        state: restarted
+
+    - name: Read the initial admin password file
+      ansible.builtin.slurp:
+        src: /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkins_password_file
+
+    - name: Print the Jenkins password
+      ansible.builtin.debug:
+        msg: "Your Jenkins initial admin password is: {{ jenkins_password_file['content'] | b64decode }}"
